@@ -68,7 +68,8 @@ async function makePpt(pdf, mode, name) {
    });
   }
  }
- await pptx.writeFile({fileName:name+'.pptx'});
+ const base64 = await pptx.write({ outputType: 'base64' });
+Android.saveFile(name + '.pptx', base64);
 }
 
 async function convert(){
