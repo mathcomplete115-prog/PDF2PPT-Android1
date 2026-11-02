@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF to PPT</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+body{font-family:Arial;background:#101827;color:white;padding:20px}
+.card{background:#1e293b;padding:20px;border-radius:15px}
+h2{color:#60a5fa}
+button{background:#2563eb;color:white;border:0;padding:14px;border-radius:9px;width:100%;margin-top:15px;font-size:16px}
+input,select{margin-top:15px;width:100%;padding:12px;box-sizing:border-box}
+p{color:#cbd5e1}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>📄 PDF to PPT Converter</h2>
+<p>अपनी PDF फाइल चुनें</p>
+<input type="file" id="pdf" accept="application/pdf">
+<p>Conversion Mode चुनें</p>
+<select id="mode">
+<option value="original">Original Design</option>
+<option value="editable">Editable PPT</option>
+<option value="both">Both</option>
+</select>
+<button onclick="convert()">Convert PDF to PPT</button>
+<p id="status">Ready</p>
+</div>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+async function makePpt(pdf, mode, name) {
+ const pptx = new pptxgen();
+ pptx.layout = 'LAYOUT_WIDE';
+ const W = 13.333, H = 7.5;
+
+ for(let i=1;i<=pdf.numPages;i++){
+  document.getElementById('status').innerText =
+   'Converting page '+i+' of '+pdf.numPages;
+  const page = await pdf.getPage(i);
+  const viewport = page.getViewport({scale:1.5});
+  const canvas = document.createElement('canvas');
+  canvas.width=viewport.width;
+  canvas.height=viewport.height;
+  await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+  const slide=pptx.addSlide();
+
+  if(mode==='original'){
+   slide.addImage({data:canvas.toDataURL('image/jpeg',0.9),
+    x:0,y:0,w:W,h:H});
+  } else {
+   const text=await page.getTextContent();
+   const sx=W/viewport.width, sy=H/viewport.height;
+   text.items.forEach(item=>{
+    if(!item.str.trim()) return;
+    const x=item.transform[4]*1.5*sx;
+    const y=H-item.transform[5]*1.5*sy;
+    slide.addText(item.str,{
+     x:Math.max(0,x),y:Math.max(0,y),
+     w:Math.max(0.5,item.width*1.5*sx),
+     h:0.3,fontSize:Math.max(8,Math.min(24,item.height*1.5*sy*18)),
+     color:'222222',margin:0,breakLine:false
+    });
+   });
+  }
+ }
+ await pptx.writeFile({fileName:name+'.pptx'});
+}
+
+async function convert(){
+ const file=document.getElementById('pdf').files[0];
+ if(!file){alert('पहले PDF चुनें');return;}
+ try{
+  const data=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data}).promise;
+  const mode=document.getElementById('mode').value;
+  if(mode==='original'||mode==='both')
+   await makePpt(pdf,'original','PDF-Original');
+  if(mode==='editable'||mode==='both')
+   await makePpt(pdf,'editable','PDF-Editable');
+  document.getElementById('status').innerText='Conversion complete!';
+ }catch(e){
+  document.getElementById('status').innerText='Error: '+e.message;
+ }
+}
+</script>
+</body>
+</html>
